@@ -1,9 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { PlusCircle, List, DollarSign, Gift, Trash2 } from 'lucide-react';
 import axios from "axios";
+import { AxiosResponse } from "axios";
 
-// Define the data structures with TypeScript interfaces for clarity and type safety.
-// This is the data for crypto wallets you upload to the dashboard.
 interface UploadedCrypto {
     id: number;
     network: string;
@@ -12,23 +11,22 @@ interface UploadedCrypto {
     qrCodeUrl: string;
 }
 
-// This is the data for crypto donations received.
 interface CryptoDonation {
     id: number;
     amount: string;
     proofUrl: string;
+    date: string;
 }
 
-// This is the data for gift card donations received.
 interface GiftcardDonation {
-    id: number;
-    amount: string;
+    id: string;
+    amount: number | string;
     country: string;
     type: string;
     proofUrls: string[];
-}
+    date: string;
+};
 
-// Define the props for each component to prevent implicit 'any' type errors.
 interface CryptoUploadSectionProps {
     setUploadedCrypto: React.Dispatch<React.SetStateAction<UploadedCrypto[]>>;
 }
@@ -38,55 +36,15 @@ interface UploadedCryptoSectionProps {
     handleDeleteCrypto: (id: number) => void;
 }
 
-interface DonatedCryptoSectionProps {
-    cryptoDonations: CryptoDonation[];
-}
-
-interface DonatedGiftcardSectionProps {
-    giftcardDonations: GiftcardDonation[];
-}
-
-// Main App component that manages the dashboard layout and state
 function App() {
     const [activeSection, setActiveSection] = useState<'upload-crypto' | 'uploaded-crypto' | 'crypto-donations' | 'giftcard-donations'>('upload-crypto');
 
-    // Mock data for demonstration purposes, explicitly typed.
     const [uploadedCrypto, setUploadedCrypto] = useState<UploadedCrypto[]>([
         { id: 1, network: 'Ethereum', currency: 'ETH', wallet: '0x123...abc', qrCodeUrl: 'https://placehold.co/100x100' },
         { id: 2, network: 'Bitcoin', currency: 'BTC', wallet: 'bc1q2...xyz', qrCodeUrl: 'https://placehold.co/100x100' },
     ]);
 
-    const [cryptoDonations ] = useState<CryptoDonation[]>([
-        { id: 1, amount: '0.05 BTC', proofUrl: 'https://placehold.co/400x300/e9d5ff/8b5cf6?text=Proof+Image' },
-        { id: 2, amount: '2.5 ETH', proofUrl: 'https://placehold.co/400x300/e0e7ff/3b82f6?text=Proof+Image' },
-    ]);
-
-    const [giftcardDonations] = useState<GiftcardDonation[]>([
-        {
-            id: 1,
-            amount: '$50',
-            country: 'USA',
-            type: 'Amazon',
-            proofUrls: [
-                'https://placehold.co/400x300/dbeafe/1d4ed8?text=Image+1',
-                'https://placehold.co/400x300/dbeafe/1d4ed8?text=Image+2',
-                'https://placehold.co/400x300/dbeafe/1d4ed8?text=Image+3'
-            ]
-        },
-        {
-            id: 2,
-            amount: '$100',
-            country: 'UK',
-            type: 'Steam',
-            proofUrls: [
-                'https://placehold.co/400x300/dcfce7/16a34a?text=Image+A',
-                'https://placehold.co/400x300/dcfce7/16a34a?text=Image+B'
-            ]
-        },
-    ]);
-
     const handleDeleteCrypto = (id: number) => {
-        // Filter out the crypto with the matching id
         setUploadedCrypto(prev => prev.filter(crypto => crypto.id !== id));
     };
 
@@ -131,8 +89,8 @@ function App() {
             <main className="bg-white rounded-xl shadow-lg p-6 mt-72 md:mt-40">
                 {activeSection === 'upload-crypto' && <CryptoUploadSection setUploadedCrypto={setUploadedCrypto} />}
                 {activeSection === 'uploaded-crypto' && <UploadedCryptoSection uploadedCrypto={uploadedCrypto} handleDeleteCrypto={handleDeleteCrypto} />}
-                {activeSection === 'crypto-donations' && <DonatedCryptoSection cryptoDonations={cryptoDonations} />}
-                {activeSection === 'giftcard-donations' && <DonatedGiftcardSection giftcardDonations={giftcardDonations} />}
+                {activeSection === 'crypto-donations' && <DonatedCryptoSection />}
+                {activeSection === 'giftcard-donations' && <DonatedGiftcardSection />}
             </main>
         </div>
     );
@@ -313,21 +271,53 @@ function UploadedCryptoSection({ uploadedCrypto, handleDeleteCrypto }: UploadedC
     );
 }
 
-// Section to display donated crypto (with proof)
-function DonatedCryptoSection({ cryptoDonations }: DonatedCryptoSectionProps) {
+function DonatedCryptoSection() {
+    const [cryptoDonations, setCryptoDonations] = useState<CryptoDonation[]>([]);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        const fetchDonations = async () => {
+            try {
+                const res = await axios.get("http://localhost:5000/secure/admin/cryptodonation", {
+                    withCredentials: true,
+                });
+
+                setCryptoDonations(res.data.donations || []);
+            } catch (err) {
+                console.error("Error fetching crypto donations:", err);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchDonations();
+    }, []);
+
+    if (loading) {
+        return <p className="text-gray-500">Loading crypto donations...</p>;
+    }
+
     return (
         <div>
             <h2 className="text-2xl font-bold text-gray-800 mb-4">Crypto Donations</h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                {cryptoDonations.map((donation: CryptoDonation) => (
+                {cryptoDonations.map((donation) => (
                     <div key={donation.id} className="bg-gray-50 rounded-xl shadow-md p-4">
-                        <h3 className="font-semibold text-lg text-gray-800 mb-2">Amount: <span className="text-green-600">{donation.amount}</span></h3>
+                        <h3 className="font-semibold text-lg text-gray-800 mb-2">
+                            Amount: <span className="text-green-600">{donation.amount}</span>
+                        </h3>
                         <div className="w-full h-48 rounded-md overflow-hidden shadow-sm">
-                            <img src={donation.proofUrl} alt="Donation Proof" className="w-full h-full object-cover" />
+                            <img
+                                src={donation.proofUrl}
+                                alt="Donation Proof"
+                                className="w-full h-full object-cover"
+                            />
                         </div>
+                        <p className='text-sm'>{donation.date}</p>
                         <p className="text-gray-500 text-sm mt-2">Proof of donation.</p>
                     </div>
                 ))}
+
                 {cryptoDonations.length === 0 && (
                     <div className="text-center col-span-full py-6 text-gray-500">
                         No crypto donations have been received yet.
@@ -338,47 +328,137 @@ function DonatedCryptoSection({ cryptoDonations }: DonatedCryptoSectionProps) {
     );
 }
 
-// Section to display donated gift cards
-function DonatedGiftcardSection({ giftcardDonations }: DonatedGiftcardSectionProps) {
-    return (
-        <div>
-            <h2 className="text-2xl font-bold text-gray-800 mb-4">Giftcard Donations</h2>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                {giftcardDonations.map((donation: GiftcardDonation) => (
-                    <div key={donation.id} className="bg-gray-50 rounded-xl shadow-md p-4">
-                        <div className="mb-2">
-                            <h3 className="font-semibold text-lg text-gray-800">Type: <span className="text-purple-600">{donation.type}</span></h3>
-                            <p className="text-gray-500">Amount: <span className="font-medium">{donation.amount}</span></p>
-                            <p className="text-gray-500">Country: <span className="font-medium">{donation.country}</span></p>
-                        </div>
 
-                        <div className="relative w-full overflow-x-auto whitespace-nowrap rounded-md shadow-sm border border-gray-200 p-2">
-                            <div className="inline-flex space-x-2">
-                                {donation.proofUrls.map((url: string, index: number) => (
-                                    <img
-                                        key={index}
-                                        src={url}
-                                        alt={`Giftcard proof ${index + 1}`}
-                                        className="w-56 h-auto flex-shrink-0 rounded-md object-contain"
-                                    />
-                                ))}
-                                {donation.proofUrls.length > 0 && (
-                                    <div className="flex items-center justify-center text-gray-400 p-4">
-                                        <p className="font-semibold">{donation.proofUrls.length} image(s)</p>
-                                    </div>
-                                )}
-                            </div>
-                        </div>
-                    </div>
-                ))}
-                {giftcardDonations.length === 0 && (
-                    <div className="text-center col-span-full py-6 text-gray-500">
-                        No giftcard donations have been received yet.
-                    </div>
-                )}
+// Section to display donated gift cards
+// function DonatedGiftcardSection() {
+//     return (
+//         <div>
+//             <h2 className="text-2xl font-bold text-gray-800 mb-4">Giftcard Donations</h2>
+//             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+//                 {giftcardDonations.map((donation: GiftcardDonation) => (
+//                     <div key={donation.id} className="bg-gray-50 rounded-xl shadow-md p-4">
+//                         <div className="mb-2">
+//                             <h3 className="font-semibold text-lg text-gray-800">Type: <span className="text-purple-600">{donation.type}</span></h3>
+//                             <p className="text-gray-500">Amount: <span className="font-medium">{donation.amount}</span></p>
+//                             <p className="text-gray-500">Country: <span className="font-medium">{donation.country}</span></p>
+//                         </div>
+
+//                         <div className="relative w-full overflow-x-auto whitespace-nowrap rounded-md shadow-sm border border-gray-200 p-2">
+//                             <div className="inline-flex space-x-2">
+//                                 {donation.proofUrls.map((url: string, index: number) => (
+//                                     <img
+//                                         key={index}
+//                                         src={url}
+//                                         alt={`Giftcard proof ${index + 1}`}
+//                                         className="w-56 h-auto flex-shrink-0 rounded-md object-contain"
+//                                     />
+//                                 ))}
+//                                 {donation.proofUrls.length > 0 && (
+//                                     <div className="flex items-center justify-center text-gray-400 p-4">
+//                                         <p className="font-semibold">{donation.proofUrls.length} image(s)</p>
+//                                     </div>
+//                                 )}
+//                             </div>
+//                         </div>
+//                     </div>
+//                 ))}
+//                 {giftcardDonations.length === 0 && (
+//                     <div className="text-center col-span-full py-6 text-gray-500">
+//                         No giftcard donations have been received yet.
+//                     </div>
+//                 )}
+//             </div>
+//         </div>
+//     );
+// }
+
+function DonatedGiftcardSection() {
+  const [giftcardDonations, setGiftcardDonations] = useState<GiftcardDonation[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let mounted = true;
+
+    axios
+      .get("http://localhost:5000/secure/admin/giftcarddonation", {
+        withCredentials: true,
+      })
+      .then((res: AxiosResponse<{ giftcardDonations: GiftcardDonation[] }>) => {
+        if (!mounted) return;
+        setGiftcardDonations(res.data?.giftcardDonations ?? []);
+      })
+      .catch((err) => {
+        console.error("Error fetching giftcard donations:", err);
+      })
+      .finally(() => {
+        if (mounted) setLoading(false);
+      });
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  if (loading) {
+    return <p className="text-gray-500">Loading giftcard donations...</p>;
+  }
+
+  return (
+    <div>
+      <h2 className="text-2xl font-bold text-gray-800 mb-4">Giftcard Donations</h2>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+        {giftcardDonations.map((donation) => (
+          <div key={donation.id} className="bg-gray-50 rounded-xl shadow-md p-4">
+            <div className="mb-2">
+              <h3 className="font-semibold text-lg text-gray-800">
+                Type: <span className="text-purple-600">{donation.type}</span>
+              </h3>
+              <p className="text-gray-500">
+                Amount: <span className="font-medium">{donation.amount}</span>
+              </p>
+              <p className="text-gray-500">
+                Country: <span className="font-medium">{donation.country}</span>
+              </p>
+              <p className="text-gray-400 text-sm">Donated on {donation.date}</p>
             </div>
-        </div>
-    );
+
+            {/* Horizontal scroll strip (no carousel lib) */}
+            <div className="relative w-full overflow-x-auto whitespace-nowrap rounded-md shadow-sm border border-gray-200 p-2">
+              <div className="inline-flex space-x-2">
+                {donation.proofUrls.length > 0 ? (
+                  donation.proofUrls.map((url, index) => (
+                    <img
+                      key={index}
+                      src={url}
+                      alt={`Giftcard proof ${index + 1}`}
+                      className="w-56 h-56 flex-shrink-0 rounded-md object-contain bg-white"
+                      // The onError handler has been removed to display broken images for debugging
+                    />
+                  ))
+                ) : (
+                  <span className="text-gray-400 text-sm px-2">No proof images</span>
+                )}
+              </div>
+            </div>
+
+            {donation.proofUrls.length > 0 && (
+              <div className="flex items-center justify-center text-gray-400 mt-2">
+                <p className="font-semibold">{donation.proofUrls.length} image(s)</p>
+              </div>
+            )}
+          </div>
+        ))}
+
+        {giftcardDonations.length === 0 && (
+          <div className="text-center col-span-full py-6 text-gray-500">
+            No giftcard donations have been received yet.
+          </div>
+        )}
+      </div>
+    </div>
+  );
 }
+
+
 
 export default App;

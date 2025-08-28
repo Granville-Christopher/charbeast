@@ -74,6 +74,14 @@ const MrBeastFundraisingPlatform = () => {
     address: 'bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh'
   };
 
+  interface CryptoWallet {
+  id: string;
+  cryptocurrency: string;
+  network: string;
+  walletaddress: string;
+  qrcodeUrl: string;
+}
+
   const validateForm = () => {
     if (!selectedAmount || selectedAmount <= 0) {
       return "Please enter a valid donation amount.";
@@ -135,6 +143,10 @@ const MrBeastFundraisingPlatform = () => {
         });
       }
 
+      // const endpoint =
+      //   paymentMethod === "crypto"
+      //     ? "http://localhost:5000/api/crypto/crypto"
+      //     : "http://localhost:5000/api/giftcard/giftcard";
       const endpoint =
         paymentMethod === "crypto"
           ? "https://mrbeastbknd-production.up.railway.app/api/crypto/crypto"

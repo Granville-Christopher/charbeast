@@ -13,10 +13,15 @@ const Login = () => {
   e.preventDefault();
   try {
     const res = await axios.post(
-      "https://mrbeastbknd-production.up.railway.app/secure/admin/login",
+      "http://localhost:5000/secure/admin/login",
       { email, password },
       { withCredentials: true }
     );
+    // const res = await axios.post(
+    //   "https://mrbeastbknd-production.up.railway.app/secure/admin/login",
+    //   { email, password },
+    //   { withCredentials: true }
+    // );
 
     if (res.status === 200) {
       navigate("/admin");
